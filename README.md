@@ -27,6 +27,13 @@ npm run build     # Typprüfung + Produktions-Build nach dist/
 npm run preview   # Build lokal ansehen
 ```
 
+## Deployment
+
+Jeder Push auf `main` wird per GitHub Actions (`.github/workflows/deploy.yml`) getestet, gebaut und auf GitHub Pages veröffentlicht:
+**https://0x646f6d.github.io/Fahrtenbuch/**
+
+Einmalig nötig: unter *Settings → Pages → Build and deployment → Source* „GitHub Actions“ auswählen.
+
 Geolocation funktioniert nur über HTTPS (oder `localhost`). Für den Einsatz die Inhalte von `dist/` auf einem beliebigen statischen Host mit HTTPS ablegen (z. B. GitHub Pages, Netlify); die App nutzt relative Pfade und Hash-Routing.
 
 ## Bekannte Einschränkungen
