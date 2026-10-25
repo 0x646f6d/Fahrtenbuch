@@ -1,13 +1,17 @@
-import { Crosshair, Layers, Play, Square, X } from 'lucide-react';
+import { Crosshair, Layers, Play, Signpost, Square, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { MapContainer, useMap, useMapEvents } from 'react-leaflet';
+import { useNavigate } from 'react-router-dom';
 import { showToast } from '../components/toast';
 import { BoatMarker, EntryMarkers, TrackLine } from '../components/TrackLayers';
 import { LayerToggles } from '../map/LayerToggles';
 import { MapLayers } from '../map/MapLayers';
 import { useTrack, useTripEntries } from '../db/hooks';
 import { saveSetting, useSettings } from '../db/settings';
+import { formatPosition } from '../gps/nav';
 import { endTrip, startTrip } from '../gps/service';
+import { goTo } from '../route/active';
+import { ActiveRouteLayer } from '../route/RouteLayers';
 import { useLive } from '../store/liveStore';
 
 function Follow({ follow, onUserMove }: { follow: boolean; onUserMove: () => void }) {
@@ -28,7 +32,20 @@ function Follow({ follow, onUserMove }: { follow: boolean; onUserMove: () => voi
   return null;
 }
 
+/** Long press (contextmenu) on the map: navigate straight to that point. */
+function DirectTo() {
+  useMapEvents({
+    contextmenu: (e) => {
+      const { lat, lng } = e.latlng;
+      const name = formatPosition(lat, lng);
+      if (confirm(`Direkt zu ${name} navigieren?`)) goTo({ lat, lon: lng, name: 'Ziel' });
+    },
+  });
+  return null;
+}
+
 export function MapScreen() {
+  const navigate = useNavigate();
   const fix = useLive((s) => s.fix);
   const activeTripId = useLive((s) => s.activeTripId);
   const settings = useSettings();
@@ -66,6 +83,8 @@ export function MapScreen() {
         <MapLayers />
         <TrackLine points={track} />
         <EntryMarkers entries={entries} />
+        <ActiveRouteLayer />
+        <DirectTo />
         {fix && <BoatMarker lat={fix.lat} lon={fix.lon} cog={fix.cog} />}
         <Follow follow={follow} onUserMove={() => setFollowing(false)} />
       </MapContainer>
@@ -80,6 +99,9 @@ export function MapScreen() {
         </button>
         <button className="fab" onClick={() => setLayersOpen(true)} aria-label="Kartenebenen" title="Kartenebenen">
           <Layers size={28} />
+        </button>
+        <button className="fab" onClick={() => navigate('/routen')} aria-label="Routen" title="Routen planen">
+          <Signpost size={28} />
         </button>
       </div>
       {layersOpen && (

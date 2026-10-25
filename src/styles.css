@@ -12,6 +12,7 @@
   --good: #2a9d8f;
   --warn: #f4a261;
   --border: #c9d5e3;
+  --route: #7b2cbf;
   --radius: 14px;
   color-scheme: light;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -32,6 +33,7 @@
   --good: #a33a3a;
   --warn: #ff4d4d;
   --border: #3a0d0d;
+  --route: #5a0b0b;
   color-scheme: dark;
 }
 
@@ -84,12 +86,14 @@ textarea {
 }
 
 .app {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   height: 100dvh;
 }
 
 .content {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   position: relative;
 }
@@ -881,4 +885,172 @@ textarea {
 
 .grid-label.lon {
   margin: 4px 0 0 4px !important;
+}
+
+/* route navigation */
+.routebar {
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  background: var(--route);
+  color: #fff;
+  padding: 0.2rem 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.routebar-btn {
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.routebar-target {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.routebar-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.routebar-name strong,
+.routebar-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routebar-name small {
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.routebar-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 0.35rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.routebar-stat .label {
+  font-size: 0.65rem;
+  opacity: 0.8;
+}
+
+.routebar-stat .value {
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .routebar .hide-narrow {
+    display: none;
+  }
+}
+
+.route-map .leaflet-interactive:focus {
+  outline: none;
+}
+
+.wp-icon {
+  background: none;
+  border: none;
+}
+
+.wp-icon span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--route);
+  border: 3px solid var(--route);
+  font-weight: 800;
+  font-size: 13px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.wp-icon.target span {
+  background: var(--route);
+  color: #fff;
+}
+
+.wp-icon.done span {
+  opacity: 0.5;
+}
+
+.route-map {
+  height: 50vh;
+  min-height: 260px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.route-summary {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.wp-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.wp-num {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--route);
+  color: #fff;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wp-name {
+  text-align: left;
+}
+
+.trip-row .primary {
+  min-height: 48px;
+}
+
+.active-route {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 2px solid var(--route);
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.sheet-backdrop.fixed {
+  position: fixed;
+  z-index: 1500;
+}
+
+:root[data-theme='night'] .routebar,
+:root[data-theme='night'] .wp-num {
+  color: var(--text);
 }

@@ -19,7 +19,7 @@ export function LogTilesScreen() {
 
   const pages = useMemo(() => {
     const sorted = sortByUsage(
-      ENTRY_TYPES.filter((t) => t.id !== 'mob'),
+      ENTRY_TYPES.filter((t) => !t.hidden),
       usage,
     );
     const out: EntryType[][] = [];

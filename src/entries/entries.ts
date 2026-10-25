@@ -1,8 +1,16 @@
 import { db, recordUsage, unrecordUsage, type EntryValue, type LogEntry } from '../db/db';
 import { useLive } from '../store/liveStore';
 
-/** Create a log entry, stamping it with the current time and telemetry. */
-export async function addEntry(type: string, data: Record<string, EntryValue> = {}, note?: string): Promise<number> {
+/**
+ * Create a log entry, stamping it with the current time and telemetry.
+ * Automatic entries pass `countUsage = false` so they don't affect the tile order.
+ */
+export async function addEntry(
+  type: string,
+  data: Record<string, EntryValue> = {},
+  note?: string,
+  countUsage = true,
+): Promise<number> {
   const { fix, activeTripId } = useLive.getState();
   const entry: LogEntry = {
     tripId: activeTripId,
@@ -16,7 +24,7 @@ export async function addEntry(type: string, data: Record<string, EntryValue> = 
     note: note || undefined,
   };
   const id = (await db.logEntries.add(entry)) as number;
-  await recordUsage(type);
+  if (countUsage) await recordUsage(type);
   return id;
 }
 

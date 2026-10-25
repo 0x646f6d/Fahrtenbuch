@@ -13,6 +13,7 @@ Logbuch-App für (Segel-)Boote als Progressive Web App. Rein clientseitig: **kei
 3. **Export**: PDF/CSV, Teilen über die App (umgesetzt: PDF, CSV, GPX, JSON-Sicherung, Web Share API).
 4. **Zurücksetzen**: alle Daten löschen können.
 5. Release 1 speichert nur am Client; ein Backend ist ausdrücklich nicht Teil davon.
+6. **Routenplanung** (MVP): Routen aus Wegpunkten, gemerkte Orte, „Direkt zu“, Navigation mit BTW/DTW/XTE/ETA.
 
 ## Befehle
 
@@ -47,8 +48,8 @@ Kein ESLint/Prettier eingerichtet; Stil: 2 Spaces, Single Quotes, Semikolons, Ze
 
 ```
 src/
-  main.tsx                 Einstieg: Leaflet-CSS, styles.css, storage.persist(), initTracking()
-  App.tsx                  HashRouter, Layout (StatusBar / Routes / BottomNav / ToastView), Theme -> <html data-theme>
+  main.tsx                 Einstieg: Leaflet-CSS, styles.css, storage.persist(), initTracking(), initRoute()
+  App.tsx                  HashRouter, Layout (StatusBar / RouteNavBar / Routes / BottomNav / ToastView), Theme -> <html data-theme>
   styles.css               gesamtes CSS, Farb-Variablen; Nachtmodus über :root[data-theme='night']
   vite-env.d.ts            __APP_VERSION__ (aus package.json via define)
   db/
@@ -61,6 +62,12 @@ src/
     motion.ts              MotionEstimator: SOG/COG (Gerätewerte bevorzugt, sonst aus Historie, geglättet)
     nav.ts                 Haversine (sm), Peilung, Kreismittel, Formatierung (Pos/Kurs/Fahrt/Dauer)
     wakeLock.ts            Screen Wake Lock während aktiver Fahrt
+  route/
+    routeNav.ts            Schläge, XTE/Along-Track, navInfo (BTW/DTW/VMG/ETA), hasArrived (rein, getestet)
+    active.ts              Zustand der aktiven Navigation (Snapshot in Setting activeRoute), onRouteFix, goTo
+    routes.ts              createRoute/updateRoute/deleteRoute, savePlace, renumber („WP n“)
+    RouteLayers.tsx        ActiveRouteLayer (Karte), waypointIcon
+    RouteNavBar.tsx        Navigationsleiste unter der StatusBar
   store/liveStore.ts       Zustand: GPS-Status, aktueller Fix, aktive Fahrt, Fahrtdistanz
   entries/
     entryTypes.ts          ALLE Eintragstypen (Icon, Felder, prefill), sortByUsage, describeData
@@ -78,7 +85,7 @@ src/
     Graticule.tsx          Koordinatengitter mit Beschriftung
   components/              StatusBar, BottomNav, ToastView + toast.ts (showToast), TrackLayers, EntryList
   screens/                 MapScreen, LogTilesScreen, EntryFormScreen, LogbookScreen, TripsScreen,
-                           TripDetailScreen, SettingsScreen
+                           TripDetailScreen, RoutesScreen, RouteEditScreen, SettingsScreen
   test/setup.ts            importiert fake-indexeddb/auto
 public/                    icon.svg, icon-192.png, icon-512.png (PNG aus SVG gerendert)
 .github/workflows/deploy.yml  Test + Build + Deploy auf GitHub Pages
@@ -94,9 +101,10 @@ public/                    icon.svg, icon-192.png, icon-512.png (PNG aus SVG ger
 | `#/eintrag/bearbeiten/:id` | Eintrag bearbeiten/löschen |
 | `#/logbuch` | Einträge (aktuelle/letzte Fahrt, alle, je Fahrt) |
 | `#/fahrten`, `#/fahrten/:id` | Fahrtenliste, Detail mit Karte + Export |
+| `#/routen`, `#/routen/:id` | Routen + Orte, Routen-Editor mit Karte (über Wegweiser-Button auf der Karte) |
 | `#/einstellungen` | Bootsname, Log-Intervall, Theme, Export/Sicherung, Daten löschen |
 
-## Datenmodell (Dexie DB `fahrtenbuch`, Version 1)
+## Datenmodell (Dexie DB `fahrtenbuch`, Version 2)
 
 | Tabelle | Schlüssel/Indizes | Felder |
 |---|---|---|
@@ -104,7 +112,9 @@ public/                    icon.svg, icon-192.png, icon-512.png (PNG aus SVG ger
 | `trackPoints` | `++id, tripId, [tripId+ts]` | `lat, lon, sog (kn), cog (°), accuracy (m), gap?` |
 | `logEntries` | `++id, tripId, ts, type` | `tripId` (null = ohne Fahrt), `lat, lon, sog, cog, data: Record<string,string\|number>, note?` |
 | `entryUsage` | `type` | `count, lastUsed` – für Kachel-Sortierung |
-| `settings` | `key` | `value` – Keys: `boatName, logIntervalSec, theme ('day'\|'night'), followBoat, mapLayers` |
+| `settings` | `key` | `value` – Keys: `boatName, logIntervalSec, theme ('day'\|'night'), followBoat, mapLayers, activeRoute, arrivalRadiusNm` |
+| `routes` (v2) | `++id, updatedAt` | `name, createdAt, points: {lat, lon, name}[]` (Wegpunkte eingebettet, letzter = Ziel) |
+| `places` (v2) | `++id, name` | `name, lat, lon, createdAt` – gemerkte Buchten/Häfen |
 
 Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Version 1 ändern – Nutzer haben echte Daten im Browser. Bei neuen Tabellen auch `clearAllData`, `backup.ts` (`Backup`-Typ, create/restore) anpassen.
 
@@ -130,12 +140,29 @@ Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Ver
 - Während einer Fahrt Wake Lock aktiv.
 - **Einschränkung**: PWAs erhalten im Hintergrund/bei gesperrtem Bildschirm (v. a. iOS) keine Positionen. Echtes Hintergrund-Tracking bräuchte eine native Hülle (z. B. Capacitor). Geolocation nur über HTTPS/localhost.
 
+## Routen & Navigation (route/)
+
+- Route = geordnete Wegpunktliste; „Zielbucht“ = Route mit einem Punkt. „Direkt zu“ (Ort → „Ziel“ oder langer Druck auf
+  die Karte) legt keine Route an, sondern nur den Navigations-Snapshot.
+- Aktive Navigation steht als **Snapshot** im Setting `activeRoute` (`routeId|null, name, points, target, from`);
+  `updateRoute`/`deleteRoute` halten ihn über `syncRoute` aktuell. `from` = Start des aktuellen Schlags (vorheriger
+  Wegpunkt, beim ersten die Position bei Aktivierung) – Basis für XTE.
+- `onRouteFix` läuft in `service.ts` für jeden Fix (≤ 50 m Genauigkeit): erreicht, wenn DTW ≤ `arrivalRadiusNm`
+  (Standard 0,1 sm) oder querab passiert (Along-Track ≥ 1) innerhalb 5 × Radius → nächster Wegpunkt, Toast und
+  Logbuch-Eintrag `waypoint` (ohne Usage-Zählung).
+- XTE/Along-Track über ebene Projektion (für Küstenschläge ausreichend), XTE + = rechts der Kurslinie. ETA zum
+  Wegpunkt über VMG, ETA Ziel über SOG; unter 0,3 kn keine ETA.
+- Standardnamen „WP n“ werden nach Einfügen/Löschen/Umkehren neu nummeriert (`renumber`), eigene Namen bleiben.
+- GPX: `routeToGpx` (`<rte>/<rtept>`), `parseGpxRoutes` liest `<rte>` bzw. ersatzweise alle `<wpt>` als eine Route.
+- Keine Prüfung auf Land/Untiefen – Hinweis steht in der Oberfläche.
+
 ## Eintragstypen (entries/entryTypes.ts)
 
 - `quick: true` → ein Tipp speichert sofort (Toast mit Rückgängig). Sonst Formular mit `fields` (`number | text | textarea | select | course`) und optionalem `prefill(fix)`.
 - Jeder Eintrag bekommt automatisch Zeit, Position, SOG, COG und `tripId` der aktiven Fahrt; Formular hat zusätzlich „Bemerkung“ (`note`).
 - Aktuelle Typen: Wende, Neuer Kurs (prefill COG), Halse, Ablegen, Anlegen, Anker auf, Anker fallen, Motor an/aus, Segel setzen/bergen, Reffen, Ausreffen, Wetter, Wache/Crew, Fahrt/Log (prefill SOG), Motorstunden, Tanken, Wasser, Wassertiefe, Position, Notiz, Vorkommnis, Mann über Bord.
-- `mob` wird nicht im Raster gezeigt, sondern als immer sichtbarer roter Button oben im Kachel-Screen.
+- `hidden: true` → nicht im Raster: `mob` (immer sichtbarer roter Button oben im Kachel-Screen) und `waypoint`
+  („Wegpunkt erreicht“, wird automatisch geschrieben).
 - Sortierung `sortByUsage`: `count × 0.5^(AlterTage/14)`, bei Gleichstand Reihenfolge des Arrays. Die Array-Reihenfolge ist also die Standardreihenfolge.
 - Kacheln: 8 pro Seite (2×4, ab 700 px Breite 4×2), Seiten per horizontalem Scroll-Snap.
 - Neuen Typ hinzufügen = Eintrag in `ENTRY_TYPES` (id stabil halten – sie steht in der DB!).
@@ -165,7 +192,7 @@ Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Ver
 - **PDF** (A4 quer, je Fahrt): Kopf mit Boot/Fahrt/Dauer/Distanz, Tabelle aller Einträge. Standard-PDF-Fonts können nur WinAnsi → Sonderzeichen über `pdfSafe` ersetzen (z. B. `′` → `'`).
 - **CSV**: Semikolon, Dezimalkomma, UTF-8 mit BOM (Excel-DE). Einträge je Fahrt oder gesamt; Track separat.
 - **GPX 1.1**: Track mit Segmenten an Lücken, Einträge als `<wpt>`. Keine Nicht-Standard-Elemente in `<trkpt>`.
-- **JSON-Sicherung**: alle Tabellen; `restoreBackup` ersetzt den kompletten Bestand (prüft `app === 'fahrtenbuch'`).
+- **JSON-Sicherung** (`version: 2`): alle Tabellen inkl. `routes`/`places`; `restoreBackup` ersetzt den kompletten Bestand (prüft `app === 'fahrtenbuch'`, Version-1-Sicherungen ohne Routen werden weiter gelesen).
 - Ausgabe über `shareOrDownload` (Teilen-Menü, sonst Download).
 
 ## PWA / Deployment
@@ -178,7 +205,7 @@ Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Ver
 
 ## Tests
 
-- Unit-Tests liegen neben dem Code (`*.test.ts`): `nav`, `recorder`, `motion`, `entryTypes`, `export` (CSV/GPX), `db` (inkl. Backup-Round-Trip), `map/layers`.
+- Unit-Tests liegen neben dem Code (`*.test.ts`): `nav`, `recorder`, `motion`, `entryTypes`, `export` (CSV/GPX), `gpxRoute`, `db` (inkl. Backup-Round-Trip), `map/layers`, `route/routeNav`, `route/routes`.
 - UI-Prüfung bei Bedarf mit Playwright gegen `npm run preview`; Geolocation mit `context.setGeolocation` simulieren (Berechtigung `geolocation` setzen).
 
 ## Stolperfallen

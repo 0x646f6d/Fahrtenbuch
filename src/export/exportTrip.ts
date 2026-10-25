@@ -1,7 +1,7 @@
-import { db, type Trip } from '../db/db';
+import { db, type Route, type Trip } from '../db/db';
 import { loadSettings } from '../db/settings';
 import { entriesToCsv, trackToCsv } from './csv';
-import { tripToGpx } from './gpx';
+import { routeToGpx, tripToGpx } from './gpx';
 import { tripToPdf } from './pdf';
 import { fileStamp, safeName, shareOrDownload } from './share';
 import { createBackup } from './backup';
@@ -43,4 +43,9 @@ export async function exportAllEntriesCsv() {
 export async function exportBackup() {
   const backup = await createBackup();
   return shareOrDownload(new Blob([JSON.stringify(backup)], { type: 'application/json' }), `fahrtenbuch_backup_${fileStamp()}.json`, 'Fahrtenbuch Sicherung');
+}
+
+export async function exportRouteGpx(route: Route) {
+  const blob = new Blob([routeToGpx(route)], { type: 'application/gpx+xml' });
+  return shareOrDownload(blob, `route_${safeName(route.name)}.gpx`, route.name);
 }

@@ -1,5 +1,6 @@
 import { db, getActiveTrip, type TrackPoint } from '../db/db';
 import { loadSettings } from '../db/settings';
+import { onRouteFix } from '../route/active';
 import { useLive } from '../store/liveStore';
 import { MotionEstimator } from './motion';
 import { decide, MAX_ACCURACY_M, type RecFix } from './recorder';
@@ -21,6 +22,7 @@ function onPosition(pos: GeolocationPosition): void {
   const { sog, cog } = motion.update({ lat, lon, ts }, speed, heading);
   const live = useLive.getState();
   live.setFix({ lat, lon, ts, accuracy, sog, cog });
+  if (accuracy <= MAX_ACCURACY_M) onRouteFix({ lat, lon, ts, sog, cog });
 
   const tripId = live.activeTripId;
   if (tripId == null) return;

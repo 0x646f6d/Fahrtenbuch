@@ -13,6 +13,7 @@ import {
   Gauge,
   LifeBuoy,
   MapPin,
+  Navigation,
   Minimize2,
   Maximize2,
   Power,
@@ -50,6 +51,8 @@ export interface EntryType {
   prefill?: (fix: LiveFix | null) => Record<string, EntryValue>;
   /** emphasised tile (e.g. safety-relevant) */
   accent?: 'danger' | 'primary';
+  /** not offered as a tile (written automatically or shown elsewhere) */
+  hidden?: boolean;
 }
 
 const COMPASS = ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'];
@@ -154,7 +157,14 @@ export const ENTRY_TYPES: EntryType[] = [
       { key: 'text', label: 'Beschreibung', kind: 'textarea' },
     ],
   },
-  { id: 'mob', label: 'Mann über Bord', icon: LifeBuoy, quick: true, accent: 'danger' },
+  { id: 'mob', label: 'Mann über Bord', icon: LifeBuoy, quick: true, accent: 'danger', hidden: true },
+  {
+    id: 'waypoint',
+    label: 'Wegpunkt erreicht',
+    icon: Navigation,
+    hidden: true,
+    fields: [{ key: 'name', label: 'Wegpunkt', kind: 'text' }],
+  },
 ];
 
 export const ENTRY_TYPE_MAP = new Map(ENTRY_TYPES.map((t) => [t.id, t]));

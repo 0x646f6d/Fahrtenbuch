@@ -1,4 +1,4 @@
-import Dexie, { type EntityTable } from 'dexie';
+import Dexie, { type EntityTable, type Table } from 'dexie';
 
 export interface Trip {
   id?: number;
@@ -44,6 +44,30 @@ export interface EntryUsage {
   lastUsed: number;
 }
 
+export interface RoutePoint {
+  lat: number;
+  lon: number;
+  name: string;
+}
+
+export interface Route {
+  id?: number;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  /** waypoints in order; the last one is the destination */
+  points: RoutePoint[];
+}
+
+/** Saved spot (bay, harbour, anchorage) that can be reused in routes. */
+export interface Place {
+  id?: number;
+  name: string;
+  lat: number;
+  lon: number;
+  createdAt: number;
+}
+
 export interface Setting {
   key: string;
   value: unknown;
@@ -55,6 +79,8 @@ export const db = new Dexie('fahrtenbuch') as Dexie & {
   logEntries: EntityTable<LogEntry, 'id'>;
   entryUsage: EntityTable<EntryUsage, 'type'>;
   settings: EntityTable<Setting, 'key'>;
+  routes: EntityTable<Route, 'id'>;
+  places: EntityTable<Place, 'id'>;
 };
 
 db.version(1).stores({
@@ -65,9 +91,14 @@ db.version(1).stores({
   settings: 'key',
 });
 
+db.version(2).stores({
+  routes: '++id, updatedAt',
+  places: '++id, name',
+});
+
 export async function clearAllData(keepSettings = true): Promise<void> {
-  const tables = [db.trips, db.trackPoints, db.logEntries, db.entryUsage];
-  if (!keepSettings) tables.push(db.settings as never);
+  const tables: Table[] = [db.trips, db.trackPoints, db.logEntries, db.entryUsage, db.routes, db.places];
+  if (!keepSettings) tables.push(db.settings);
   await db.transaction('rw', tables, async () => {
     await Promise.all(tables.map((t) => t.clear()));
   });

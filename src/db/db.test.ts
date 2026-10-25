@@ -33,12 +33,22 @@ describe('db', () => {
     expect(await db.settings.count()).toBe(1);
   });
 
+  it('restores a version 1 backup without routes', async () => {
+    await db.routes.add({ name: 'r', createdAt: 1, updatedAt: 1, points: [] });
+    await restoreBackup(JSON.stringify({ app: 'fahrtenbuch', version: 1, trips: [], trackPoints: [], logEntries: [], entryUsage: [], settings: [] }));
+    expect(await db.routes.count()).toBe(0);
+  });
+
   it('round-trips a backup', async () => {
     await db.trips.add({ name: 'a', startedAt: 1, distanceNm: 2 });
+    await db.routes.add({ name: 'r', createdAt: 1, updatedAt: 1, points: [{ lat: 1, lon: 2, name: 'WP 1' }] });
+    await db.places.add({ name: 'Bucht', lat: 1, lon: 2, createdAt: 1 });
     const json = JSON.stringify(await createBackup());
     await clearAllData(false);
     await restoreBackup(json);
     expect((await db.trips.toArray())[0].name).toBe('a');
+    expect((await db.routes.toArray())[0].points[0].name).toBe('WP 1');
+    expect(await db.places.count()).toBe(1);
     await expect(restoreBackup('{"foo":1}')).rejects.toThrow();
   });
 });

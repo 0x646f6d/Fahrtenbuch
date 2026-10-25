@@ -7,8 +7,10 @@ import { restoreBackup } from '../export/backup';
 import { exportAllEntriesCsv, exportBackup } from '../export/exportTrip';
 import { LayerToggles } from '../map/LayerToggles';
 import { initTracking, resetTracking, setLogInterval } from '../gps/service';
+import { initRoute, setArrivalRadius, stopRoute } from '../route/active';
 
 const INTERVALS = [2, 5, 10, 30, 60];
+const ARRIVAL_RADII = [0.05, 0.1, 0.2, 0.5];
 const CONFIRM_WORD = 'LÖSCHEN';
 
 export function SettingsScreen() {
@@ -33,6 +35,7 @@ export function SettingsScreen() {
       await restoreBackup(await file.text());
       resetTracking();
       await initTracking();
+      await initRoute();
     }, 'Sicherung wiederhergestellt');
   };
 
@@ -40,6 +43,7 @@ export function SettingsScreen() {
     await run(async () => {
       await clearAllData(true);
       resetTracking();
+      stopRoute();
     }, 'Alle Daten gelöscht');
     setConfirmOpen(false);
     setConfirmText('');
@@ -80,6 +84,28 @@ export function SettingsScreen() {
         </div>
         <p className="hint">
           Die App muss für die Aufzeichnung im Vordergrund bleiben – der Bildschirm wird während einer Fahrt wach gehalten.
+        </p>
+      </section>
+
+      <section>
+        <h2>Routen-Navigation</h2>
+        <div className="field">
+          <span className="field-label">Wegpunkt erreicht im Umkreis von</span>
+          <div className="chips">
+            {ARRIVAL_RADII.map((r) => (
+              <button
+                key={r}
+                className={`chip ${settings.arrivalRadiusNm === r ? 'active' : ''}`}
+                onClick={() => setArrivalRadius(r)}
+              >
+                {r.toLocaleString('de-AT')} sm
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="hint">
+          Danach schaltet die Navigation zum nächsten Wegpunkt und schreibt „Wegpunkt erreicht“ ins Logbuch. Routen und Orte
+          verwaltest du über das Wegweiser-Symbol auf der Karte.
         </p>
       </section>
 
@@ -131,7 +157,7 @@ export function SettingsScreen() {
         ) : (
           <div className="confirm-box">
             <p>
-              Alle Fahrten, Tracks und Einträge werden unwiderruflich gelöscht. Erstelle vorher eine Sicherung.
+              Alle Fahrten, Tracks, Einträge, Routen und Orte werden unwiderruflich gelöscht. Erstelle vorher eine Sicherung.
               Zum Bestätigen <strong>{CONFIRM_WORD}</strong> eingeben:
             </p>
             <input type="text" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoFocus />
