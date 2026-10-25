@@ -34,7 +34,7 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/(tile\.openstreetmap\.org|tiles\.openseamap\.org)\//,
+            urlPattern: /^https:\/\/(tile\.openstreetmap\.org|tiles\.openseamap\.org|geoserver\.openseamap\.org|depth\.openseamap\.org)\//,
             handler: 'CacheFirst',
             options: {
               cacheName: 'map-tiles',

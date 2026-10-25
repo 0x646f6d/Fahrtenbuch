@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
+import type { LayerState } from '../map/layers';
 import { db } from './db';
 
 export interface Settings {
@@ -6,6 +7,7 @@ export interface Settings {
   logIntervalSec: number;
   theme: 'day' | 'night';
   followBoat: boolean;
+  mapLayers: LayerState;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -13,6 +15,7 @@ export const DEFAULT_SETTINGS: Settings = {
   logIntervalSec: 5,
   theme: 'day',
   followBoat: true,
+  mapLayers: {},
 };
 
 export async function loadSettings(): Promise<Settings> {

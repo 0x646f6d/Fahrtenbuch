@@ -6,8 +6,9 @@ import { MapContainer, useMap } from 'react-leaflet';
 import { useNavigate, useParams } from 'react-router-dom';
 import { EntryList } from '../components/EntryList';
 import { showToast } from '../components/toast';
-import { BaseLayers, EntryMarkers, TrackLine } from '../components/TrackLayers';
+import { EntryMarkers, TrackLine } from '../components/TrackLayers';
 import { db, deleteTrip, type TrackPoint } from '../db/db';
+import { MapLayers } from '../map/MapLayers';
 import { useTrack, useTripEntries } from '../db/hooks';
 import { exportTrip, type ExportFormat } from '../export/exportTrip';
 import { fmtDateTime } from '../export/format';
@@ -81,7 +82,7 @@ export function TripDetailScreen() {
       </div>
       {points.length > 0 && (
         <MapContainer className="trip-map" center={[points[0].lat, points[0].lon]} zoom={13}>
-          <BaseLayers />
+          <MapLayers />
           <TrackLine points={points} />
           <EntryMarkers entries={entries} />
           <FitBounds points={points} />

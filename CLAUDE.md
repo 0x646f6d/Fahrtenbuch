@@ -71,6 +71,11 @@ src/
     exportTrip.ts          Orchestrierung je Format + Gesamt-CSV + Backup
     share.ts               shareOrDownload (Web Share API Level 2, Fallback Download), Dateinamen
     format.ts              fmtDate/fmtTime/fmtDateTime (de-AT)
+  map/
+    layers.ts              OVERLAYS (OpenSeaMap-Ebenen), isLayerOn, toggleLayer, gridStep/gridLabel
+    MapLayers.tsx          OSM-Basiskarte + aktivierte Overlays (XYZ, WMS, Gitter) – in jeder Karte verwenden
+    LayerToggles.tsx       Schalterliste (Karten-Panel und Einstellungen)
+    Graticule.tsx          Koordinatengitter mit Beschriftung
   components/              StatusBar, BottomNav, ToastView + toast.ts (showToast), TrackLayers, EntryList
   screens/                 MapScreen, LogTilesScreen, EntryFormScreen, LogbookScreen, TripsScreen,
                            TripDetailScreen, SettingsScreen
@@ -99,7 +104,7 @@ public/                    icon.svg, icon-192.png, icon-512.png (PNG aus SVG ger
 | `trackPoints` | `++id, tripId, [tripId+ts]` | `lat, lon, sog (kn), cog (°), accuracy (m), gap?` |
 | `logEntries` | `++id, tripId, ts, type` | `tripId` (null = ohne Fahrt), `lat, lon, sog, cog, data: Record<string,string\|number>, note?` |
 | `entryUsage` | `type` | `count, lastUsed` – für Kachel-Sortierung |
-| `settings` | `key` | `value` – Keys: `boatName, logIntervalSec, theme ('day'\|'night'), followBoat` |
+| `settings` | `key` | `value` – Keys: `boatName, logIntervalSec, theme ('day'\|'night'), followBoat, mapLayers` |
 
 Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Version 1 ändern – Nutzer haben echte Daten im Browser. Bei neuen Tabellen auch `clearAllData`, `backup.ts` (`Backup`-Typ, create/restore) anpassen.
 
@@ -135,6 +140,26 @@ Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Ver
 - Kacheln: 8 pro Seite (2×4, ab 700 px Breite 4×2), Seiten per horizontalem Scroll-Snap.
 - Neuen Typ hinzufügen = Eintrag in `ENTRY_TYPES` (id stabil halten – sie steht in der DB!).
 
+## Kartenebenen (map/)
+
+- Basiskarte immer OSM (`tile.openstreetmap.org`). Overlays sind in `OVERLAYS` definiert (Reihenfolge = Zeichenreihenfolge), Quellen wie auf map.openseamap.org:
+
+| id | Ebene | Quelle | Standard |
+|---|---|---|---|
+| `gebco` | Wassertiefe (GEBCO) | WMS `geoserver.openseamap.org/geoserver/gwc/service/wms`, `gebco2021:gebco_2021`, Deckkraft 0,8 | aus |
+| `contours` | Tiefenlinien | WMS `depth.openseamap.org/geoserver/openseamap/wms`, `openseamap:contour2,openseamap:contour` | aus |
+| `depthPoints10` | Tiefen-Messpunkte 10 m | dito, `openseamap:tracks_10m` | aus |
+| `depthPoints100` | Tiefen-Messpunkte 100 m | dito, `openseamap:tracks_100m` | aus |
+| `seamarks` | Seezeichen | XYZ `tiles.openseamap.org/seamark/{z}/{x}/{y}.png` | an |
+| `sport` | Wassersport | XYZ `tiles.openseamap.org/sport/{z}/{x}/{y}.png` | aus |
+| `grid` | Koordinatengitter | clientseitig (`Graticule.tsx`) | aus |
+
+- Zustand in Setting `mapLayers` (`Partial<Record<OverlayId, boolean>>`); fehlender Eintrag = `defaultOn`. Ebenen mit gleichem `group` schließen sich aus (Messpunkte 10 m/100 m).
+- Umschalten über den Ebenen-Button auf der Karte (Bottom-Sheet) oder in den Einstellungen.
+- WMS wird über Leaflets `WMSTileLayer` gekachelt abgerufen (Version 1.1.1, transparentes PNG). Neue Ebene = Eintrag in `OVERLAYS`; neue Hosts auch im Workbox-`urlPattern` in `vite.config.ts` ergänzen.
+- Gitterabstand richtet sich nach Pixeln (`gridStep`, mind. 90 px), Breitenbeschriftung links, Längenbeschriftung oben.
+- Nicht übernommen: Häfen (braucht PHP-Proxy von OpenSeaMap), AIS (MarineTraffic), Luftbild (Bing-Key).
+
 ## Export
 
 - **PDF** (A4 quer, je Fahrt): Kopf mit Boot/Fahrt/Dauer/Distanz, Tabelle aller Einträge. Standard-PDF-Fonts können nur WinAnsi → Sonderzeichen über `pdfSafe` ersetzen (z. B. `′` → `'`).
@@ -145,15 +170,15 @@ Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Ver
 
 ## PWA / Deployment
 
-- `vite.config.ts`: `base: './'` (relative Pfade, damit die Seite unter `/Fahrtenbuch/` läuft), Manifest (de, standalone), Precache aller Assets, Runtime-Cache `CacheFirst` für Kacheln von `tile.openstreetmap.org` und `tiles.openseamap.org` (max. 5000, 60 Tage).
-- Kartenlayer: OSM-Basiskarte + Overlay `https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png`. Attribution beibehalten.
+- `vite.config.ts`: `base: './'` (relative Pfade, damit die Seite unter `/Fahrtenbuch/` läuft), Manifest (de, standalone), Precache aller Assets, Runtime-Cache `CacheFirst` für Kacheln von `tile.openstreetmap.org`, `tiles.openseamap.org`, `geoserver.openseamap.org` und `depth.openseamap.org` (max. 5000, 60 Tage).
+- Kartenlayer siehe „Kartenebenen“. Attributionen beibehalten.
 - `navigator.storage.persist()` wird beim Start angefordert.
 - `.github/workflows/deploy.yml`: bei Push auf `main` (und manuell) → `npm ci`, `npm test`, `npm run build`, Upload `dist/`, Deploy auf GitHub Pages. Pages-Quelle im Repo steht auf „GitHub Actions“.
 - Die installierte PWA aktualisiert sich automatisch (autoUpdate); neue Version ggf. erst beim nächsten Öffnen sichtbar.
 
 ## Tests
 
-- Unit-Tests liegen neben dem Code (`*.test.ts`): `nav`, `recorder`, `motion`, `entryTypes`, `export` (CSV/GPX), `db` (inkl. Backup-Round-Trip).
+- Unit-Tests liegen neben dem Code (`*.test.ts`): `nav`, `recorder`, `motion`, `entryTypes`, `export` (CSV/GPX), `db` (inkl. Backup-Round-Trip), `map/layers`.
 - UI-Prüfung bei Bedarf mit Playwright gegen `npm run preview`; Geolocation mit `context.setGeolocation` simulieren (Berechtigung `geolocation` setzen).
 
 ## Stolperfallen

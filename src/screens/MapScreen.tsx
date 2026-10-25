@@ -1,8 +1,10 @@
-import { Crosshair, Play, Square } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Crosshair, Layers, Play, Square, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { MapContainer, useMap, useMapEvents } from 'react-leaflet';
 import { showToast } from '../components/toast';
-import { BaseLayers, BoatMarker, EntryMarkers, TrackLine } from '../components/TrackLayers';
+import { BoatMarker, EntryMarkers, TrackLine } from '../components/TrackLayers';
+import { LayerToggles } from '../map/LayerToggles';
+import { MapLayers } from '../map/MapLayers';
 import { useTrack, useTripEntries } from '../db/hooks';
 import { saveSetting, useSettings } from '../db/settings';
 import { endTrip, startTrip } from '../gps/service';
@@ -11,9 +13,17 @@ import { useLive } from '../store/liveStore';
 function Follow({ follow, onUserMove }: { follow: boolean; onUserMove: () => void }) {
   const map = useMap();
   const fix = useLive((s) => s.fix);
+  const centered = useRef(false);
   useMapEvents({ dragstart: onUserMove });
   useEffect(() => {
-    if (follow && fix) map.panTo([fix.lat, fix.lon], { animate: true });
+    if (!fix) return;
+    if (!centered.current) {
+      // first fix after opening the map: jump there at a useful zoom
+      centered.current = true;
+      if (map.getZoom() < 12) map.setView([fix.lat, fix.lon], 14);
+      return;
+    }
+    if (follow) map.panTo([fix.lat, fix.lon], { animate: true });
   }, [follow, fix, map]);
   return null;
 }
@@ -26,6 +36,7 @@ export function MapScreen() {
   const track = useTrack(activeTripId);
   const entries = useTripEntries(activeTripId);
   const [busy, setBusy] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
 
   const setFollowing = (v: boolean) => {
     setFollow(v);
@@ -52,7 +63,7 @@ export function MapScreen() {
   return (
     <div className="map-screen">
       <MapContainer center={center} zoom={fix ? 14 : 6} className="map" zoomControl={false}>
-        <BaseLayers />
+        <MapLayers />
         <TrackLine points={track} />
         <EntryMarkers entries={entries} />
         {fix && <BoatMarker lat={fix.lat} lon={fix.lon} cog={fix.cog} />}
@@ -67,7 +78,23 @@ export function MapScreen() {
         >
           <Crosshair size={28} />
         </button>
+        <button className="fab" onClick={() => setLayersOpen(true)} aria-label="Kartenebenen" title="Kartenebenen">
+          <Layers size={28} />
+        </button>
       </div>
+      {layersOpen && (
+        <div className="sheet-backdrop" onClick={() => setLayersOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Kartenebenen">
+            <div className="sheet-header">
+              <h2>Kartenebenen</h2>
+              <button className="icon-button" onClick={() => setLayersOpen(false)} aria-label="Schließen">
+                <X size={28} />
+              </button>
+            </div>
+            <LayerToggles />
+          </div>
+        </div>
+      )}
       <button className={`trip-button ${activeTripId != null ? 'stop' : 'start'}`} onClick={toggleTrip} disabled={busy}>
         {activeTripId != null ? <Square size={24} /> : <Play size={24} />}
         {activeTripId != null ? 'Fahrt beenden' : 'Fahrt starten'}

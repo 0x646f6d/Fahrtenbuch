@@ -1,26 +1,9 @@
 import L from 'leaflet';
 import { useMemo } from 'react';
-import { CircleMarker, Marker, Polyline, TileLayer, Tooltip } from 'react-leaflet';
+import { CircleMarker, Marker, Polyline, Tooltip } from 'react-leaflet';
 import type { LogEntry, TrackPoint } from '../db/db';
 import { entryLabel } from '../entries/entryTypes';
 import { fmtTime } from '../export/format';
-
-export function BaseLayers() {
-  return (
-    <>
-      <TileLayer
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        maxZoom={19}
-      />
-      <TileLayer
-        url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openseamap.org">OpenSeaMap</a>'
-        maxZoom={18}
-      />
-    </>
-  );
-}
 
 export function toSegments(points: Pick<TrackPoint, 'lat' | 'lon' | 'gap'>[]): [number, number][][] {
   const segs: [number, number][][] = [];

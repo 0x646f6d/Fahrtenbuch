@@ -5,6 +5,7 @@ Logbuch-App für Boote als Progressive Web App (React, Vite). Alle Daten bleiben
 ## Funktionen
 
 - **Karte**: OpenStreetMap mit OpenSeaMap-Seezeichen, Bootsposition (Pfeil nach COG), aufgezeichneter Track und Logbuch-Einträge als Marker. „Karte folgt Boot“ schaltbar.
+- **Kartenebenen** (Ebenen-Button auf der Karte oder Einstellungen): Seezeichen, Wassersport, Wassertiefe (GEBCO), Tiefenlinien, Tiefen-Messpunkte 10 m / 100 m, Koordinatengitter – einzeln ein-/ausschaltbar, die Auswahl wird gespeichert.
 - **Statusleiste**: SOG, COG, Position, Distanz und Dauer der laufenden Fahrt, GPS-Genauigkeit, Uhrzeit.
 - **GPS-Track**: Während einer Fahrt wird alle 2–60 s (einstellbar, Standard 5 s) ein Trackpunkt gespeichert. Ungenaue Positionen (> 50 m) und unplausible Sprünge werden verworfen, Lücken (z. B. App im Hintergrund) werden als neues Track-Segment markiert und nicht zur Distanz gezählt.
 - **Einträge**: Große Kacheln mit Icons, auf mehrere Seiten verteilt (wischen). Häufig genutzte Einträge rücken nach vorne (Nutzungszähler mit Abklingzeit von 14 Tagen). Schnell-Einträge (Wende, Halse, Reffen, Anker, Motor …) werden mit einem Tipp gespeichert und lassen sich über den Hinweis rückgängig machen. Jeder Eintrag erhält automatisch Zeit, Position, COG und SOG; „Neuer Kurs“ übernimmt den aktuellen GPS-Kurs. Ein „Mann über Bord“-Button ist immer sichtbar.

@@ -5,6 +5,7 @@ import { clearAllData } from '../db/db';
 import { saveSetting, useSettings } from '../db/settings';
 import { restoreBackup } from '../export/backup';
 import { exportAllEntriesCsv, exportBackup } from '../export/exportTrip';
+import { LayerToggles } from '../map/LayerToggles';
 import { initTracking, resetTracking, setLogInterval } from '../gps/service';
 
 const INTERVALS = [2, 5, 10, 30, 60];
@@ -92,6 +93,12 @@ export function SettingsScreen() {
             <Moon size={20} /> Nacht
           </button>
         </div>
+      </section>
+
+      <section>
+        <h2>Kartenebenen (OpenSeaMap)</h2>
+        <p className="hint">Auch direkt auf der Karte über das Ebenen-Symbol umschaltbar.</p>
+        <LayerToggles />
       </section>
 
       <section>
