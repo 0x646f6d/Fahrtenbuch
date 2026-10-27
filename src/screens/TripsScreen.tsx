@@ -23,7 +23,7 @@ export function TripsScreen() {
       <div className="page-header">
         <h1>Fahrten</h1>
       </div>
-      {trips.length === 0 && <p className="empty">Noch keine Fahrten. Starte eine Fahrt auf der Karte.</p>}
+      {trips.length === 0 && <p className="empty">Noch keine Fahrten. Eine Fahrt beginnt automatisch, sobald sich das Boot bewegt, oder über „Fahrtbeginn“ / „Ablegen“ im Logbuch.</p>}
       <ul className="trip-list">
         {trips.map((t) => {
           const active = t.id === activeTripId;

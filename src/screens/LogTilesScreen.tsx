@@ -3,7 +3,9 @@ import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { showToast } from '../components/toast';
 import { db } from '../db/db';
+import { useSettings } from '../db/settings';
 import { addEntry, removeEntry } from '../entries/entries';
+import { saveQuickEntry } from '../entries/tripActions';
 import { ENTRY_TYPE_MAP, ENTRY_TYPES, sortByUsage, type EntryType } from '../entries/entryTypes';
 import { formatPosition } from '../gps/nav';
 import { useLive } from '../store/liveStore';
@@ -14,23 +16,25 @@ export function LogTilesScreen() {
   const navigate = useNavigate();
   const usage = useLiveQuery(() => db.entryUsage.toArray(), [], []);
   const activeTripId = useLive((s) => s.activeTripId);
+  const { autoTrip } = useSettings();
+  const tripActive = activeTripId != null;
   const pagerRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
 
   const pages = useMemo(() => {
     const sorted = sortByUsage(
-      ENTRY_TYPES.filter((t) => !t.hidden),
+      ENTRY_TYPES.filter((t) => !t.hidden && (t.whenTrip === undefined || t.whenTrip === tripActive)),
       usage,
     );
     const out: EntryType[][] = [];
     for (let i = 0; i < sorted.length; i += PER_PAGE) out.push(sorted.slice(i, i + PER_PAGE));
     return out;
-  }, [usage]);
+  }, [usage, tripActive]);
 
   const quickSave = async (t: EntryType) => {
     navigator.vibrate?.(30);
-    const id = await addEntry(t.id);
-    showToast(`${t.label} eingetragen`, { label: 'Rückgängig', run: () => void removeEntry(id) });
+    const res = await saveQuickEntry(t.id, t.label);
+    showToast(res.text, { label: 'Rückgängig', run: () => void res.undo() });
   };
 
   const onTile = (t: EntryType) => {
@@ -57,7 +61,12 @@ export function LogTilesScreen() {
 
   return (
     <div className="tiles-screen">
-      {activeTripId == null && <div className="hint">Keine Fahrt aktiv – Einträge werden ohne Fahrt gespeichert.</div>}
+      {!tripActive && (
+        <div className="hint">
+          Keine Fahrt aktiv
+          {autoTrip ? ' – sie beginnt automatisch, sobald sich das Boot bewegt.' : ' – Einträge werden ohne Fahrt gespeichert.'}
+        </div>
+      )}
       <button className="mob-button" onClick={onMob}>
         <mob.icon size={30} /> Mann über Bord
       </button>

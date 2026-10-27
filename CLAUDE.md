@@ -61,6 +61,7 @@ src/
     recorder.ts            decide(): ob ein Fix als Trackpunkt gespeichert wird (rein, getestet)
     motion.ts              MotionEstimator: SOG/COG (Gerätewerte bevorzugt, sonst aus Historie, geglättet)
     nav.ts                 Haversine (sm), Peilung, Kreismittel, Formatierung (Pos/Kurs/Fahrt/Dauer)
+    autoTrip.ts            autoStep(): Fahrt automatisch beginnen/beenden aus Bewegung (rein, getestet)
     wakeLock.ts            Screen Wake Lock während aktiver Fahrt
   route/
     routeNav.ts            Schläge, XTE/Along-Track, navInfo (BTW/DTW/VMG/ETA), hasArrived (rein, getestet)
@@ -71,7 +72,8 @@ src/
   store/liveStore.ts       Zustand: GPS-Status, aktueller Fix, aktive Fahrt, Fahrtdistanz
   entries/
     entryTypes.ts          ALLE Eintragstypen (Icon, Felder, prefill), sortByUsage, describeData
-    entries.ts             addEntry (stempelt Zeit/Pos/SOG/COG), updateEntry, removeEntry
+    entries.ts             addEntry (stempelt Zeit/Pos/SOG/COG, optional überschreibbar), updateEntry, removeEntry
+    tripActions.ts         saveQuickEntry: Schnell-Einträge inkl. Fahrtbeginn/-ende samt Rückgängig
   export/
     pdf.ts csv.ts gpx.ts   Generatoren
     backup.ts              JSON-Sicherung erstellen/wiederherstellen
@@ -102,7 +104,7 @@ public/                    icon.svg, icon-192.png, icon-512.png (PNG aus SVG ger
 | `#/logbuch` | Einträge (aktuelle/letzte Fahrt, alle, je Fahrt) |
 | `#/fahrten`, `#/fahrten/:id` | Fahrtenliste, Detail mit Karte + Export |
 | `#/routen`, `#/routen/:id` | Routen + Orte, Routen-Editor mit Karte (über Wegweiser-Button auf der Karte) |
-| `#/einstellungen` | Bootsname, Log-Intervall, Theme, Export/Sicherung, Daten löschen |
+| `#/einstellungen` | Bootsname, Log-Intervall, Auto-Fahrt, Theme, Export/Sicherung, Daten löschen |
 
 ## Datenmodell (Dexie DB `fahrtenbuch`, Version 2)
 
@@ -112,7 +114,7 @@ public/                    icon.svg, icon-192.png, icon-512.png (PNG aus SVG ger
 | `trackPoints` | `++id, tripId, [tripId+ts]` | `lat, lon, sog (kn), cog (°), accuracy (m), gap?` |
 | `logEntries` | `++id, tripId, ts, type` | `tripId` (null = ohne Fahrt), `lat, lon, sog, cog, data: Record<string,string\|number>, note?` |
 | `entryUsage` | `type` | `count, lastUsed` – für Kachel-Sortierung |
-| `settings` | `key` | `value` – Keys: `boatName, logIntervalSec, theme ('day'\|'night'), followBoat, mapLayers, activeRoute, arrivalRadiusNm` |
+| `settings` | `key` | `value` – Keys: `boatName, logIntervalSec, autoTrip, theme ('day'\|'night'), followBoat, mapLayers, activeRoute, arrivalRadiusNm` |
 | `routes` (v2) | `++id, updatedAt` | `name, createdAt, points: {lat, lon, name}[]` (Wegpunkte eingebettet, letzter = Ziel) |
 | `places` (v2) | `++id, name` | `name, lat, lon, createdAt` – gemerkte Buchten/Häfen |
 
@@ -138,6 +140,16 @@ Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Ver
 - SOG/COG (`motion.ts`): Gerätewerte bevorzugt, sonst aus Fix ≥ 3 s zurück (Historie 15 s); COG über letzte 3 Werte kreisgemittelt; unter 0,5 kn bleibt der letzte Kurs stehen.
 - Schreibvorgänge werden in `service.ts` über eine Promise-Kette serialisiert; `trips.distanceNm` wird laufend mitgeschrieben, Live-Wert steht in `useLive().tripDistanceNm`.
 - Während einer Fahrt Wake Lock aktiv.
+- **Fahrt beginnen/beenden** – kein Button auf der Karte, sondern:
+  - automatisch (Setting `autoTrip`, Standard an; `autoTrip.ts`, nur Fixes ≤ 30 m): Beginn, wenn das Boot einen
+    Kreis von 0,05 sm verlässt und ≥ 1 kn macht; Ende, wenn es 1 h lang in 0,1 sm bleibt. `endedAt` wird auf den
+    Zeitpunkt des Stillstands zurückdatiert, Trackpunkte danach gelöscht, Distanz neu berechnet. Schreibt Einträge
+    `tripStart`/`tripEnd` (Bemerkung „automatisch erkannt“, ohne Usage-Zählung).
+  - manuell über die Kacheln „Fahrtbeginn“/„Fahrtende“ (je nach Zustand nur eine sichtbar, `whenTrip`); „Ablegen“
+    und „Anker auf“ beginnen ebenfalls eine Fahrt, falls keine läuft. Rückgängig löscht die Fahrt bzw. setzt sie fort
+    (`reopenTrip`).
+  - Nach manuellem Ende startet die Automatik erst wieder nach 15 min Stillstand (kein Neustart beim Einparken).
+  - Nach App-Neustart wird der Stillstandsbeginn aus dem Track geschätzt.
 - **Einschränkung**: PWAs erhalten im Hintergrund/bei gesperrtem Bildschirm (v. a. iOS) keine Positionen. Echtes Hintergrund-Tracking bräuchte eine native Hülle (z. B. Capacitor). Geolocation nur über HTTPS/localhost.
 
 ## Routen & Navigation (route/)
@@ -160,7 +172,8 @@ Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Ver
 
 - `quick: true` → ein Tipp speichert sofort (Toast mit Rückgängig). Sonst Formular mit `fields` (`number | text | textarea | select | course`) und optionalem `prefill(fix)`.
 - Jeder Eintrag bekommt automatisch Zeit, Position, SOG, COG und `tripId` der aktiven Fahrt; Formular hat zusätzlich „Bemerkung“ (`note`).
-- Aktuelle Typen: Wende, Neuer Kurs (prefill COG), Halse, Ablegen, Anlegen, Anker auf, Anker fallen, Motor an/aus, Segel setzen/bergen, Reffen, Ausreffen, Wetter, Wache/Crew, Fahrt/Log (prefill SOG), Motorstunden, Tanken, Wasser, Wassertiefe, Position, Notiz, Vorkommnis, Mann über Bord.
+- Aktuelle Typen: Wende, Neuer Kurs (prefill COG), Halse, Ablegen, Anlegen, Anker auf, Anker fallen, Fahrtbeginn,
+  Fahrtende, Motor an/aus, Segel setzen/bergen, Reffen, Ausreffen, Wetter, Wache/Crew, Fahrt/Log (prefill SOG), Motorstunden, Tanken, Wasser, Wassertiefe, Position, Notiz, Vorkommnis, Mann über Bord.
 - `hidden: true` → nicht im Raster: `mob` (immer sichtbarer roter Button oben im Kachel-Screen) und `waypoint`
   („Wegpunkt erreicht“, wird automatisch geschrieben).
 - Sortierung `sortByUsage`: `count × 0.5^(AlterTage/14)`, bei Gleichstand Reihenfolge des Arrays. Die Array-Reihenfolge ist also die Standardreihenfolge.
@@ -205,7 +218,7 @@ Schemaänderungen **immer** über eine neue `db.version(n)` mit Upgrade, nie Ver
 
 ## Tests
 
-- Unit-Tests liegen neben dem Code (`*.test.ts`): `nav`, `recorder`, `motion`, `entryTypes`, `export` (CSV/GPX), `gpxRoute`, `db` (inkl. Backup-Round-Trip), `map/layers`, `route/routeNav`, `route/routes`.
+- Unit-Tests liegen neben dem Code (`*.test.ts`): `nav`, `recorder`, `motion`, `autoTrip`, `entryTypes`, `export` (CSV/GPX), `gpxRoute`, `db` (inkl. Backup-Round-Trip), `map/layers`, `route/routeNav`, `route/routes`.
 - UI-Prüfung bei Bedarf mit Playwright gegen `npm run preview`; Geolocation mit `context.setGeolocation` simulieren (Berechtigung `geolocation` setzen).
 
 ## Stolperfallen

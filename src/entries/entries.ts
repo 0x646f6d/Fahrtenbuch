@@ -3,13 +3,15 @@ import { useLive } from '../store/liveStore';
 
 /**
  * Create a log entry, stamping it with the current time and telemetry.
- * Automatic entries pass `countUsage = false` so they don't affect the tile order.
+ * Automatic entries pass `countUsage = false` so they don't affect the tile order;
+ * `stamp` overrides the stamped time/telemetry (e.g. for an entry dated back).
  */
 export async function addEntry(
   type: string,
   data: Record<string, EntryValue> = {},
   note?: string,
   countUsage = true,
+  stamp: Partial<Pick<LogEntry, 'ts' | 'lat' | 'lon' | 'sog' | 'cog'>> = {},
 ): Promise<number> {
   const { fix, activeTripId } = useLive.getState();
   const entry: LogEntry = {
@@ -22,6 +24,7 @@ export async function addEntry(
     cog: fix?.cog ?? null,
     data,
     note: note || undefined,
+    ...stamp,
   };
   const id = (await db.logEntries.add(entry)) as number;
   if (countUsage) await recordUsage(type);

@@ -14,6 +14,7 @@ import {
   LifeBuoy,
   MapPin,
   Navigation,
+  Play,
   Minimize2,
   Maximize2,
   Power,
@@ -21,6 +22,7 @@ import {
   RefreshCcw,
   Repeat,
   Ship,
+  Square,
   StickyNote,
   Users,
   Waves,
@@ -53,6 +55,8 @@ export interface EntryType {
   accent?: 'danger' | 'primary';
   /** not offered as a tile (written automatically or shown elsewhere) */
   hidden?: boolean;
+  /** tile only offered while a trip is running / not running */
+  whenTrip?: boolean;
 }
 
 const COMPASS = ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'];
@@ -75,6 +79,8 @@ export const ENTRY_TYPES: EntryType[] = [
   { id: 'moor', label: 'Anlegen', icon: ArrowDownToLine, quick: true },
   { id: 'anchorUp', label: 'Anker auf', icon: Ship, quick: true },
   { id: 'anchorDown', label: 'Anker fallen', icon: Anchor, quick: true },
+  { id: 'tripStart', label: 'Fahrtbeginn', icon: Play, quick: true, whenTrip: false },
+  { id: 'tripEnd', label: 'Fahrtende', icon: Square, quick: true, whenTrip: true },
   { id: 'engineOn', label: 'Motor an', icon: Power, quick: true },
   { id: 'engineOff', label: 'Motor aus', icon: PowerOff, quick: true },
   { id: 'sailsUp', label: 'Segel setzen', icon: Flag, quick: true },

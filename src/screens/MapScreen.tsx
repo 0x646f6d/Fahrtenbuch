@@ -1,15 +1,13 @@
-import { Crosshair, Layers, Play, Signpost, Square, X } from 'lucide-react';
+import { Crosshair, Layers, Signpost, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { MapContainer, useMap, useMapEvents } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
-import { showToast } from '../components/toast';
 import { BoatMarker, EntryMarkers, TrackLine } from '../components/TrackLayers';
 import { LayerToggles } from '../map/LayerToggles';
 import { MapLayers } from '../map/MapLayers';
 import { useTrack, useTripEntries } from '../db/hooks';
 import { saveSetting, useSettings } from '../db/settings';
 import { formatPosition } from '../gps/nav';
-import { endTrip, startTrip } from '../gps/service';
 import { goTo } from '../route/active';
 import { ActiveRouteLayer } from '../route/RouteLayers';
 import { useLive } from '../store/liveStore';
@@ -52,27 +50,11 @@ export function MapScreen() {
   const [follow, setFollow] = useState(settings.followBoat);
   const track = useTrack(activeTripId);
   const entries = useTripEntries(activeTripId);
-  const [busy, setBusy] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
 
   const setFollowing = (v: boolean) => {
     setFollow(v);
     void saveSetting('followBoat', v);
-  };
-
-  const toggleTrip = async () => {
-    setBusy(true);
-    try {
-      if (activeTripId == null) {
-        await startTrip();
-        showToast('Fahrt gestartet – Track wird aufgezeichnet');
-      } else if (confirm('Fahrt beenden?')) {
-        await endTrip();
-        showToast('Fahrt beendet');
-      }
-    } finally {
-      setBusy(false);
-    }
   };
 
   const center: [number, number] = fix ? [fix.lat, fix.lon] : [47.5, 13.5];
@@ -117,10 +99,6 @@ export function MapScreen() {
           </div>
         </div>
       )}
-      <button className={`trip-button ${activeTripId != null ? 'stop' : 'start'}`} onClick={toggleTrip} disabled={busy}>
-        {activeTripId != null ? <Square size={24} /> : <Play size={24} />}
-        {activeTripId != null ? 'Fahrt beenden' : 'Fahrt starten'}
-      </button>
     </div>
   );
 }

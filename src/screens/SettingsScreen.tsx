@@ -1,4 +1,4 @@
-import { Database, Download, FileSpreadsheet, Moon, Sun, Trash2, Upload } from 'lucide-react';
+import { Check, Database, Download, FileSpreadsheet, Moon, Ship, Sun, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { showToast } from '../components/toast';
 import { clearAllData } from '../db/db';
@@ -6,7 +6,7 @@ import { saveSetting, useSettings } from '../db/settings';
 import { restoreBackup } from '../export/backup';
 import { exportAllEntriesCsv, exportBackup } from '../export/exportTrip';
 import { LayerToggles } from '../map/LayerToggles';
-import { initTracking, resetTracking, setLogInterval } from '../gps/service';
+import { initTracking, resetTracking, setAutoTrip, setLogInterval } from '../gps/service';
 import { initRoute, setArrivalRadius, stopRoute } from '../route/active';
 
 const INTERVALS = [2, 5, 10, 30, 60];
@@ -82,8 +82,25 @@ export function SettingsScreen() {
             ))}
           </div>
         </div>
+        <button
+          className={`layer-toggle ${settings.autoTrip ? 'on' : ''}`}
+          role="switch"
+          aria-checked={settings.autoTrip}
+          onClick={() => {
+            setAutoTrip(!settings.autoTrip);
+            void saveSetting('autoTrip', !settings.autoTrip);
+          }}
+        >
+          <Ship size={26} />
+          <span className="layer-text">
+            <strong>Fahrten automatisch erkennen</strong>
+            <span>Beginnt, wenn sich das Boot bewegt; endet nach 1 h ohne Bewegung.</span>
+          </span>
+          <span className="layer-check">{settings.autoTrip && <Check size={22} strokeWidth={3} />}</span>
+        </button>
         <p className="hint">
-          Die App muss für die Aufzeichnung im Vordergrund bleiben – der Bildschirm wird während einer Fahrt wach gehalten.
+          Manuell über „Fahrtbeginn“ / „Fahrtende“ im Logbuch; „Ablegen“ und „Anker auf“ beginnen ebenfalls eine
+          Fahrt. Die App muss für die Aufzeichnung im Vordergrund bleiben – der Bildschirm wird während einer Fahrt wach gehalten.
         </p>
       </section>
 

@@ -17,6 +17,8 @@ export interface ActiveRoute {
 export interface Settings {
   boatName: string;
   logIntervalSec: number;
+  /** start/end trips automatically from movement */
+  autoTrip: boolean;
   theme: 'day' | 'night';
   followBoat: boolean;
   mapLayers: LayerState;
@@ -28,6 +30,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   boatName: '',
   logIntervalSec: 5,
+  autoTrip: true,
   theme: 'day',
   followBoat: true,
   mapLayers: {},

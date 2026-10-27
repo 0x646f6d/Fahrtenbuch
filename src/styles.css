@@ -281,33 +281,6 @@ textarea {
   color: var(--primary-text);
 }
 
-.trip-button {
-  position: absolute;
-  z-index: 500;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.9rem 1.6rem;
-  border-radius: 999px;
-  font-size: 1.15rem;
-  font-weight: 700;
-  white-space: nowrap;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
-}
-
-.trip-button.start {
-  background: var(--good);
-  color: #fff;
-}
-
-.trip-button.stop {
-  background: var(--danger);
-  color: #fff;
-}
-
 /* tiles */
 .tiles-screen {
   position: absolute;
